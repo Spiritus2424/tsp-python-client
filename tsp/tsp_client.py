@@ -45,6 +45,9 @@ headers_form = {'content-type': 'application/x-www-form-urlencoded',
                 'Accept': APPLICATION_JSON}
 
 GET_TREE_FAILED = "failed to get tree: {0}"
+GET_STATES_FAILED = "failed to get states: {0}"
+GET_ARROWS_FAILED = "failed to get arrows: {0}"
+
 
 # pylint: disable=consider-using-f-string,missing-timeout
 
@@ -74,10 +77,10 @@ class TspClient:
         response = requests.get(api_url, headers=headers)
         if response.status_code == 200:
             return TspClientResponse(TraceSet(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("get traces failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_trace(self, uuid):
         '''
@@ -90,12 +93,12 @@ class TspClient:
         response = requests.get(api_url, headers=headers)
         if response.status_code == 200:
             return TspClientResponse(Trace(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:
             print("get trace failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
-    def open_trace(self, name, path):
+    def open_trace(self, path, name):
         '''
         Open a trace on the server
         parameters: Query object
@@ -111,10 +114,37 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(Trace(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("post trace failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
+
+    def open_traces(self, path, name, max_depth, filter):
+        '''
+        Open a trace on the server
+        parameters: Query object
+        :return: :class:`TspClientResponse <Trace>` object
+        :rtype: TspClientResponse
+        '''
+        api_url = '{0}traces'.format(self.base_url)
+
+        my_parameters = {'name': name, 'uri': path, 'maxDepth': max_depth}
+        parameters = {'parameters': my_parameters}
+
+        response = requests.post(api_url, json=parameters, headers=headers)
+
+        if response.status_code == 200:
+            response_size = len(bytes(response.text, 'utf-8'))
+            content = json.loads(response.content.decode('utf-8'))
+            traces = []
+            for trace in content:
+                traces.append(Trace(trace))
+            return TspClientResponse(traces,
+                                     response.status_code, response.reason, response_size)
+        else:  # pragma: no cover
+            print("post trace failed: {0}".format(response.status_code))
+            return TspClientResponse(None, response.status_code, response.reason)
+
 
     def delete_trace(self, uuid, delete_trace, remove_cache=False):
         '''
@@ -136,10 +166,10 @@ class TspClient:
         response = requests.delete(api_url, json=parameters, headers=headers)
         if response.status_code == 200:
             return TspClientResponse(Trace(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("delete trace failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_experiments(self):
         '''
@@ -151,10 +181,10 @@ class TspClient:
         response = requests.get(api_url, headers=headers)
         if response.status_code == 200:
             return TspClientResponse(ExperimentSet(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("get experiments failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_experiment(self, uuid):
         '''
@@ -167,10 +197,10 @@ class TspClient:
         response = requests.get(api_url, headers=headers)
         if response.status_code == 200:
             return TspClientResponse(Experiment(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:
             print("get trace failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def delete_experiment(self, uuid):
         '''
@@ -183,10 +213,10 @@ class TspClient:
         response = requests.delete(api_url, headers=headers)
         if response.status_code == 200:
             return TspClientResponse(Experiment(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("delete experiment failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def open_experiment(self, name, traces):
         '''
@@ -203,10 +233,10 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(Experiment(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("post experiment failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_experiment_outputs(self, exp_uuid):
         '''
@@ -222,11 +252,11 @@ class TspClient:
         if response.status_code == 200:
             return TspClientResponse(OutputDescriptorSet(json.loads(
                 response.content.decode('utf-8'))),
-                response.status_code, response.text)
+                response.status_code, response.reason)
         else:  # pragma: no cover
             print("get output descriptors failed: {0}".format(
                 response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_experiment_output(self, exp_uuid, output_id):
         '''
@@ -241,13 +271,12 @@ class TspClient:
             self.base_url, exp_uuid, output_id)
 
         response = requests.get(api_url, headers=headers)
-
         if response.status_code == 200:
             return TspClientResponse(OutputDescriptor(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print(GET_TREE_FAILED.format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_datatree(self, exp_uuid, output_id, parameters=None):
         '''
@@ -270,10 +299,10 @@ class TspClient:
         if response.status_code == 200:
             return TspClientResponse(GenericResponse(json.loads(response.content.decode('utf-8')),
                                                      ModelType.DATA_TREE),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print(GET_TREE_FAILED.format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_timegraph_tree(self, exp_uuid, output_id, parameters=None):
         '''
@@ -284,22 +313,85 @@ class TspClient:
         :returns: :class:  `TspClientResponse <GenericResponse>` object Timegraph entries response
         :rtype: TspClientResponse
         '''
-        api_url = '{0}experiments/{1}/outputs/timeGraph/{2}/tree'.format(
-            self.base_url, exp_uuid, output_id)
+        api_url = f'{self.base_url}experiments/{exp_uuid}/outputs/timeGraph/{output_id}/tree'
 
         params = parameters
         if parameters is None:
-            params = {}
+            params = {
+                "parameters": { }
+            }
 
         response = requests.post(api_url, json=params, headers=headers)
 
         if response.status_code == 200:
+            response_size = len(bytes(response.text, 'utf-8'))
             return TspClientResponse(GenericResponse(json.loads(response.content.decode('utf-8')),
                                                      ModelType.TIME_GRAPH_TREE),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason, response_size)
         else:  # pragma: no cover
             print(GET_TREE_FAILED.format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            print(response.reason)
+            return TspClientResponse(None, response.status_code, response.reason)
+
+
+    def fetch_timegraph_states(self, exp_uuid, output_id, parameters=None):
+        '''
+        Fetch Time Graph States
+        :param exp_uuid: Experiment UUID
+        :param output_id: Output ID
+        :param parameters: Query object
+        :returns: :class:  `TspClientResponse <GenericResponse>` object Timegraph Model response
+        :rtype: TspClientResponse
+        '''
+        api_url = f'{self.base_url}experiments/{exp_uuid}/outputs/timeGraph/{output_id}/states'
+
+        params = parameters
+        if parameters is None:
+            params = {
+                "parameters": { }
+            }
+
+        response = requests.post(api_url, json=params, headers=headers)
+
+        if response.status_code == 200:
+            response_size = len(bytes(response.text, 'utf-8'))
+            return TspClientResponse(GenericResponse(json.loads(response.content.decode('utf-8')),
+                                                     ModelType.TIME_GRAPH_STATE),
+                                     response.status_code, response.reason, response_size)
+        else:  # pragma: no cover
+            print(GET_STATES_FAILED.format(response.status_code))
+            print(response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
+
+
+    def fetch_timegraph_arrows(self, exp_uuid, output_id, parameters=None):
+        '''
+        Fetch Time Graph Arrows
+        :param exp_uuid: Experiment UUID
+        :param output_id: Output ID
+        :param parameters: Query object
+        :returns: :class:  `TspClientResponse <GenericResponse>` list of object Timegraph arrows response
+        :rtype: TspClientResponse
+        '''
+        api_url = f'{self.base_url}experiments/{exp_uuid}/outputs/timeGraph/{output_id}/arrows'
+
+        params = parameters
+        if parameters is None:
+            params = {
+                "parameters": { }
+            }
+
+        response = requests.post(api_url, json=params, headers=headers)
+
+        if response.status_code == 200:
+            response_size = len(bytes(response.text, 'utf-8'))
+            return TspClientResponse(GenericResponse(json.loads(response.content.decode('utf-8')),
+                                                     ModelType.TIME_GRAPH_ARROW),
+                                     response.status_code, response.reason, response_size)
+        else:  # pragma: no cover
+            print(GET_ARROWS_FAILED.format(response.status_code))
+            print(response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_xy_tree(self, exp_uuid, output_id, parameters=None):
         '''
@@ -315,17 +407,19 @@ class TspClient:
 
         params = parameters
         if parameters is None:
-            params = {}
+            params = {
+                "parameters": { }
+            }
 
         response = requests.post(api_url, json=params, headers=headers)
 
         if response.status_code == 200:
             return TspClientResponse(GenericResponse(json.loads(response.content.decode('utf-8')),
                                                      ModelType.XY_TREE),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print(GET_TREE_FAILED.format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_xy(self, exp_uuid, output_id, parameters):
         '''
@@ -339,15 +433,21 @@ class TspClient:
         api_url = '{0}experiments/{1}/outputs/XY/{2}/xy'.format(
             self.base_url, exp_uuid, output_id)
 
-        response = requests.post(api_url, json=parameters, headers=headers)
+        params = parameters
+        if parameters is None:
+            params = {
+                "parameters": { }
+            }
 
+        response = requests.post(api_url, json=params, headers=headers)
+        
         if response.status_code == 200:
             return TspClientResponse(GenericResponse(json.loads(response.content.decode('utf-8')),
                                                      ModelType.XY),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("failed to get xy: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_configuration_sources(self):
         '''
@@ -359,10 +459,10 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(ConfigurationSourceSet(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("failed to get configuration sources: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_configuration_source(self, type_id):
         '''
@@ -374,10 +474,10 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(ConfigurationSource(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("failed to get a configuration source: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_configurations(self, type_id):
         '''
@@ -390,10 +490,10 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(ConfigurationSet(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("failed to get configurations: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def fetch_configuration(self, type_id, config_id):
         '''
@@ -406,10 +506,10 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(Configuration(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("failed to get configuration: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
 
     def post_configuration(self, type_id, params):
@@ -424,10 +524,10 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(Configuration(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("post extension failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def put_configuration(self, type_id, config_id, params):
         '''
@@ -441,10 +541,10 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(Configuration(json.loads(response.content.decode('utf-8'))), 
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("put extension failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
 
     def delete_configuration(self, type_id, config_id):
         '''
@@ -456,7 +556,7 @@ class TspClient:
 
         if response.status_code == 200:
             return TspClientResponse(Configuration(json.loads(response.content.decode('utf-8'))),
-                                     response.status_code, response.text)
+                                     response.status_code, response.reason)
         else:  # pragma: no cover
             print("post extension failed: {0}".format(response.status_code))
-            return TspClientResponse(None, response.status_code, response.text)
+            return TspClientResponse(None, response.status_code, response.reason)
